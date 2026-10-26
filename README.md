@@ -25,7 +25,7 @@ care which format a log came from. Writing produces ADI.
 
 ```toml
 [dependencies]
-adif-manip = "0.2.0"
+adif-manip = "0.3.0"
 ```
 
 ### Reading an ADI file
@@ -117,17 +117,49 @@ contain ASCII only. In practice, loggers write non-ASCII text and count its leng
 different ways. `LengthMode` selects how `read_adi` interprets lengths, and how
 `write::header` and `write::record` count them:
 
-| Mode                     | Length is counted in       |
-| ------------------------ | -------------------------- |
-| `LengthMode::Bytes`      | UTF-8 bytes                |
-| `LengthMode::Codepoints` | Unicode scalar values      |
-| `LengthMode::Graphemes`  | Extended grapheme clusters |
+| Mode                            | Length is counted in                |
+| ------------------------------- | ----------------------------------- |
+| `LengthMode::Bytes`             | UTF-8 bytes                         |
+| `LengthMode::Codepoints`        | Unicode scalar values               |
+| `LengthMode::Graphemes`         | Extended grapheme clusters          |
+| `LengthMode::Utf16Units`        | UTF-16 code units                   |
+| `LengthMode::EncodedBytes(enc)` | Bytes in the `encoding_rs` encoding |
 
-For ASCII-only files, all three modes give the same result.
+For ASCII-only files, all modes give the same result. `Utf16Units` is what programs that
+measure strings in UTF-16 (Qt, Delphi) write. `EncodedBytes` is for files in a legacy
+encoding such as Shift_JIS, which the caller decodes to a `&str` first; the crate
+re-exports `encoding_rs`, so `LengthMode::EncodedBytes(adif_manip::encoding_rs::SHIFT_JIS)`
+names one. Each character is counted on its own, so stateful encodings such as
+ISO-2022-JP are not supported, and a character the encoding cannot represent counts as
+the numeric character reference `encoding_rs` would write for it.
+
+### Detecting lengths
+
+When a file's lengths may be counted in more than one way, possibly differently from field
+to field, `read_adi_detecting` takes the candidate modes and decides for each value:
+
+```rust
+use adif_manip::{LengthMode, read_adi_detecting};
+
+let text = "<NAME:6>太郎 <NAME_INTL:2>太郎 <EOR>";
+let document = read_adi_detecting(text, &[LengthMode::Bytes, LengthMode::Codepoints])?;
+let fields = document.records()[0].fields();
+
+assert_eq!(fields["NAME"].value(), "太郎");
+assert_eq!(fields["NAME"].length_mode(), Some(LengthMode::Bytes));
+assert_eq!(fields["NAME_INTL"].length_mode(), Some(LengthMode::Codepoints));
+```
+
+A value is read in the mode that read the previous value if the next tag follows it, and
+otherwise in the first candidate after which the next tag follows. When none does, the
+value is read as `read_adi` would read it in the mode of the previous value. The order of
+the candidates matters only for the first value and for values that fit several modes.
+`Field::length_mode` tells which mode a non-ASCII ADI value was read in, also for
+`read_adi`; it is `None` for ASCII values, where all modes agree, and for ADX.
 
 ## Errors
 
-`read_adi` and `read_adx` return `adif_manip::error::AdifError`. It wraps `AdiError`,
+`read_adi`, `read_adi_detecting` and `read_adx` return `adif_manip::error::AdifError`. It wraps `AdiError`,
 `AdxError` or an XML syntax error. ADI error positions are byte offsets from the start of
 the input.
 
