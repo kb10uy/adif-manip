@@ -1,6 +1,6 @@
-# adif-reader
+# adif-manip
 
-A Rust library for reading amateur radio logs in the [ADIF](https://adif.org.uk/) format.
+A Rust library for manipulating amateur radio logs in the [ADIF](https://adif.org.uk/) format.
 Both file formats defined by the specification are supported:
 
 - **ADI** (`.adi`, `.adif`): the tag-based text format
@@ -24,13 +24,13 @@ care which format a log came from.
 
 ```toml
 [dependencies]
-adif-reader = "0.1.0"
+adif-manip = "0.1.0"
 ```
 
 ### Reading an ADI file
 
 ```rust
-use adif_reader::{LengthMode, read_adi};
+use adif_manip::{LengthMode, read_adi};
 
 let text = "Exported log\n<ADIF_VER:5>3.1.6 <EOH>\n\
             <CALL:6>JL1HIS <BAND:3>40M <FREQ:5:N>7.041 <EOR>\n";
@@ -47,7 +47,7 @@ for record in document.records() {
 ### Reading an ADX file
 
 ```rust
-use adif_reader::read_adx;
+use adif_manip::read_adx;
 
 let xml = std::fs::read_to_string("log.adx")?;
 let document = read_adx(&xml)?;
@@ -57,7 +57,7 @@ println!("{} records", document.records().len());
 ### Data types
 
 ```rust
-use adif_reader::document::DataType;
+use adif_manip::document::DataType;
 
 let record = &document.records()[0];
 assert_eq!(record.field_type("FREQ"), Some(DataType::Number));
@@ -70,7 +70,7 @@ the value and the data type.
 ### User-defined fields
 
 ```rust
-use adif_reader::document::ValueConstraint;
+use adif_manip::document::ValueConstraint;
 
 for definition in document.user_defined_fields() {
     match definition.constraint() {
@@ -104,7 +104,7 @@ For ASCII-only files, all three modes give the same result.
 
 ## Errors
 
-`read_adi` and `read_adx` return `adif_reader::error::AdifError`. It wraps `AdiError`,
+`read_adi` and `read_adx` return `adif_manip::error::AdifError`. It wraps `AdiError`,
 `AdxError` or an XML syntax error. ADI error positions are byte offsets from the start of
 the input.
 

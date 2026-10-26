@@ -1,10 +1,10 @@
 [package]
-name = "adif-reader"
+name = "adif-manip"
 version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 authors = ["Yū KOBAYASHI <kb10uy@kb10uy.org>"]
-description = "Reader for ADIF amateur radio logs in ADI and ADX formats"
+description = "ADIF manipulation library"
 readme = "README.md"
 keywords = ["adif", "ham-radio", "amateur-radio", "logbook", "parser"]
 categories = ["parser-implementations"]
