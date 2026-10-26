@@ -1,13 +1,6 @@
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::format::adi::error::AdiError;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LengthMode {
-    Bytes,
-    Codepoints,
-    Graphemes,
-}
+use crate::{LengthMode, format::adi::error::AdiError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FieldValue<'a> {

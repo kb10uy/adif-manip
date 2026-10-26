@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
+    LengthMode,
     document::{DataType, FieldName, UserDefinedField, ValueConstraint},
-    format::adi::{
-        data::{LengthMode, read_field_value},
-        error::AdiError,
-        tag::Tag,
-    },
+    format::adi::{data::read_field_value, error::AdiError, tag::Tag},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,8 +106,9 @@ fn parse_user_defined_field(
 #[cfg(test)]
 mod tests {
     use crate::{
+        LengthMode,
         document::{DataType, UserDefinedField, ValueConstraint},
-        format::adi::{data::LengthMode, error::AdiError},
+        format::adi::error::AdiError,
     };
 
     use super::Header;

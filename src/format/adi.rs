@@ -7,11 +7,10 @@ mod tag;
 use std::ops::Range;
 
 use crate::{
+    LengthMode,
     document::{AdifDocument, Field, IntoAdifDocument},
     format::adi::{error::AdiError, header::Header, record::Record, tag::Tag},
 };
-
-pub use data::LengthMode;
 
 #[derive(Debug, Clone)]
 pub struct AdiDocument<'a> {

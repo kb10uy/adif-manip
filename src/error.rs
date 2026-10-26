@@ -17,3 +17,12 @@ pub enum AdifError {
     #[error("XML error {0}")]
     Xml(#[from] XmlError),
 }
+
+#[derive(Debug, ThisError, PartialEq, Eq)]
+pub enum WriteError {
+    #[error("invalid field name: {0:?}")]
+    FieldName(String),
+
+    #[error("preamble must be non-empty and contain no '<'")]
+    Preamble,
+}

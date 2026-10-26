@@ -1,6 +1,8 @@
 pub mod document;
 pub mod error;
 mod format;
+mod length;
+pub mod write;
 
 use roxmltree::Document;
 
@@ -10,7 +12,7 @@ use crate::{
     format::{adi::AdiDocument, adx::AdxDocument},
 };
 
-pub use format::adi::LengthMode;
+pub use length::LengthMode;
 
 pub fn read_adi(adi_text: &str, length_mode: LengthMode) -> Result<AdifDocument, AdifError> {
     let adi = AdiDocument::parse(adi_text, length_mode)?;
