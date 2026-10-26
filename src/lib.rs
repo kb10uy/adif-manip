@@ -2,6 +2,7 @@ pub mod document;
 pub mod error;
 mod format;
 mod length;
+pub mod write;
 
 use roxmltree::Document;
 

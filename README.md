@@ -7,7 +7,7 @@ Both file formats defined by the specification are supported:
 - **ADX** (`.adx`): the XML format
 
 Both are read into the same `AdifDocument` type, so the rest of your code does not need to
-care which format a log came from.
+care which format a log came from. Writing produces ADI.
 
 ## Features
 
@@ -19,6 +19,7 @@ care which format a log came from.
 - Selectable interpretation of ADI data lengths for files containing non-ASCII text
 - A leading UTF-8 byte order mark is skipped
 - Byte range of each record in the source text (`record.span()`), for passing records through unchanged
+- ADI headers and records written with lengths counted in any `LengthMode`, with field names checked
 
 ## Usage
 
@@ -88,11 +89,33 @@ for definition in document.user_defined_fields() {
 Definitions are returned in `USERDEFn` order. The values of user-defined fields are
 available on records under their uppercased names, like any other field.
 
+### Writing an ADI file
+
+```rust
+use adif_manip::{LengthMode, write};
+
+let mut text = write::header("Exported log\n", [("ADIF_VER", "3.1.6")], LengthMode::Bytes)?;
+text += &write::record([("CALL", "JL1HIS"), ("BAND", "40M")], LengthMode::Bytes)?;
+
+assert_eq!(
+    text,
+    "Exported log\n<ADIF_VER:5>3.1.6 <EOH>\n<CALL:6>JL1HIS <BAND:3>40M <EOR>\n"
+);
+```
+
+`write::header` and `write::record` take fields as `(name, value)` pairs and write them in
+the order given. Each field is followed by a space, and `<EOH>` and `<EOR>` by a newline.
+Field names are written as given and must be non-empty ASCII without `,`, `:`, `<`, `>`,
+`{`, `}`, control characters or leading and trailing spaces, and must not be `EOH` or
+`EOR`. The preamble must be non-empty and contain no `<`, so that readers do not take it
+for data.
+
 ## ADI data lengths
 
 The ADIF specification counts data lengths in characters, and ADI files are meant to
 contain ASCII only. In practice, loggers write non-ASCII text and count its length in
-different ways. `LengthMode` selects how `read_adi` interprets lengths:
+different ways. `LengthMode` selects how `read_adi` interprets lengths, and how
+`write::header` and `write::record` count them:
 
 | Mode                     | Length is counted in       |
 | ------------------------ | -------------------------- |
@@ -107,6 +130,9 @@ For ASCII-only files, all three modes give the same result.
 `read_adi` and `read_adx` return `adif_manip::error::AdifError`. It wraps `AdiError`,
 `AdxError` or an XML syntax error. ADI error positions are byte offsets from the start of
 the input.
+
+`write::header` and `write::record` return `adif_manip::error::WriteError` for an invalid
+field name or preamble.
 
 ## License
 
