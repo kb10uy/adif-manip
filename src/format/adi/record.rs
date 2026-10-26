@@ -3,16 +3,19 @@ use std::collections::HashMap;
 use crate::{
     LengthMode,
     document::{DataType, FieldName},
-    format::adi::{data::read_field_value, error::AdiError, tag::Tag},
+    format::adi::{data::LengthReader, error::AdiError, tag::Tag},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record<'a> {
-    pub fields: HashMap<FieldName<'a>, (&'a str, Option<DataType>)>,
+    pub fields: HashMap<FieldName<'a>, (&'a str, Option<DataType>, Option<LengthMode>)>,
 }
 
 impl<'a> Record<'a> {
-    pub fn parse(text: &'a str, length_mode: LengthMode) -> Result<(Record<'a>, usize), AdiError> {
+    pub fn parse(
+        text: &'a str,
+        lengths: &mut LengthReader,
+    ) -> Result<(Record<'a>, usize), AdiError> {
         let mut fields = HashMap::new();
         let mut consumed = 0;
         loop {
@@ -26,8 +29,8 @@ impl<'a> Record<'a> {
                     c,
                 )) => {
                     consumed += c;
-                    let value = read_field_value(text, consumed, length_mode, value_length)?;
-                    fields.insert(FieldName::new(name), (value, data_type));
+                    let (value, length_mode) = lengths.read(text, consumed, value_length)?;
+                    fields.insert(FieldName::new(name), (value, data_type, length_mode));
                     consumed += value.len();
                 }
                 Ok((Tag::EndOfRecord, c)) => {
@@ -46,7 +49,7 @@ impl<'a> Record<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{LengthMode, document::DataType};
+    use crate::{LengthMode, document::DataType, format::adi::data::LengthReader};
 
     use super::Record;
 
@@ -54,14 +57,17 @@ mod tests {
     fn parses_record() {
         let expected = Record {
             fields: vec![
-                ("CALL".into(), ("JL1HIS", None)),
-                ("FREQ".into(), ("7.041", Some(DataType::Number))),
+                ("CALL".into(), ("JL1HIS", None, None)),
+                ("FREQ".into(), ("7.041", Some(DataType::Number), None)),
             ]
             .into_iter()
             .collect(),
         };
         assert_eq!(
-            Record::parse("<CALL:6>JL1HIS<FREQ:5:n>7.041<eor>", LengthMode::Bytes),
+            Record::parse(
+                "<CALL:6>JL1HIS<FREQ:5:n>7.041<eor>",
+                &mut LengthReader::new(&[LengthMode::Bytes])
+            ),
             Ok((expected, 34))
         );
     }

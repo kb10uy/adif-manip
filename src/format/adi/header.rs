@@ -3,20 +3,20 @@ use std::collections::HashMap;
 use crate::{
     LengthMode,
     document::{DataType, FieldName, UserDefinedField, ValueConstraint},
-    format::adi::{data::read_field_value, error::AdiError, tag::Tag},
+    format::adi::{data::LengthReader, error::AdiError, tag::Tag},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header<'a> {
     pub preamble: &'a str,
-    pub fields: HashMap<FieldName<'a>, (&'a str, Option<DataType>)>,
+    pub fields: HashMap<FieldName<'a>, (&'a str, Option<DataType>, Option<LengthMode>)>,
     pub user_defined_fields: Vec<UserDefinedField>,
 }
 
 impl<'a> Header<'a> {
     pub fn parse(
         text: &'a str,
-        length_mode: LengthMode,
+        lengths: &mut LengthReader,
     ) -> Result<(Option<Header<'a>>, usize), AdiError> {
         // > If the first character in an ADI file is <, it contains no Header.
         // https://adif.org.uk/316/ADIF_316.htm#ADI_File_Format
@@ -41,8 +41,8 @@ impl<'a> Header<'a> {
                     c,
                 )) => {
                     consumed += c;
-                    let value = read_field_value(text, consumed, length_mode, value_length)?;
-                    fields.insert(FieldName::new(name), (value, data_type));
+                    let (value, length_mode) = lengths.read(text, consumed, value_length)?;
+                    fields.insert(FieldName::new(name), (value, data_type, length_mode));
                     consumed += value.len();
                 }
                 Ok((Tag::EndOfHeader, c)) => {
@@ -57,7 +57,7 @@ impl<'a> Header<'a> {
 
         let mut user_defined_fields = fields
             .iter()
-            .filter_map(|(name, &(value, data_type))| {
+            .filter_map(|(name, &(value, data_type, _))| {
                 parse_user_defined_field(name, value, data_type).transpose()
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -108,7 +108,7 @@ mod tests {
     use crate::{
         LengthMode,
         document::{DataType, UserDefinedField, ValueConstraint},
-        format::adi::error::AdiError,
+        format::adi::{data::LengthReader, error::AdiError},
     };
 
     use super::Header;
@@ -120,35 +120,42 @@ mod tests {
         let expected = Header {
             preamble: "Fixture ADI File\n",
             fields: vec![
-                ("ADIF_VER".into(), ("3.1.6", None)),
-                ("CREATED_TIMESTAMP".into(), ("20260120 000000", None)),
-                ("PROGRAMID".into(), ("jelgen", None)),
-                ("PROGRAMVERSION".into(), ("0.1.0", None)),
+                ("ADIF_VER".into(), ("3.1.6", None, None)),
+                ("CREATED_TIMESTAMP".into(), ("20260120 000000", None, None)),
+                ("PROGRAMID".into(), ("jelgen", None, None)),
+                ("PROGRAMVERSION".into(), ("0.1.0", None, None)),
             ]
             .into_iter()
             .collect(),
             user_defined_fields: vec![],
         };
         assert_eq!(
-            Header::parse(adi_text, LengthMode::Bytes),
+            Header::parse(adi_text, &mut LengthReader::new(&[LengthMode::Bytes])),
             Ok((Some(expected), 122))
         );
     }
 
     #[test]
     fn keeps_last_of_case_insensitive_duplicates() {
-        let (header, _) = Header::parse("x<adif_ver:1>1<ADIF_VER:1>2<EOH>", LengthMode::Bytes)
-            .expect("must parse");
+        let (header, _) = Header::parse(
+            "x<adif_ver:1>1<ADIF_VER:1>2<EOH>",
+            &mut LengthReader::new(&[LengthMode::Bytes]),
+        )
+        .expect("must parse");
         let header = header.expect("must have header");
         assert_eq!(header.fields.len(), 1);
-        assert_eq!(header.fields.get(&"ADIF_VER".into()), Some(&("2", None)));
+        assert_eq!(
+            header.fields.get(&"ADIF_VER".into()),
+            Some(&("2", None, None))
+        );
     }
 
     #[test]
     fn parses_user_defined_fields() {
         let text =
             "x<USERDEF3:15>ShoeSize,{5:20}<USERDEF1:3:N>EPC<userdef2:19:E>SweaterSize,{S,M,L}<EOH>";
-        let (header, _) = Header::parse(text, LengthMode::Bytes).expect("must parse");
+        let (header, _) =
+            Header::parse(text, &mut LengthReader::new(&[LengthMode::Bytes])).expect("must parse");
         assert_eq!(
             header.expect("must have header").user_defined_fields,
             vec![
@@ -179,15 +186,21 @@ mod tests {
     #[test]
     fn rejects_malformed_user_defined_field() {
         assert_eq!(
-            Header::parse("x<USERDEF1:9>Size,S|M|L<EOH>", LengthMode::Bytes),
+            Header::parse(
+                "x<USERDEF1:9>Size,S|M|L<EOH>",
+                &mut LengthReader::new(&[LengthMode::Bytes])
+            ),
             Err(AdiError::InvalidUserDefinedField("USERDEF1".to_string()))
         );
     }
 
     #[test]
     fn keeps_non_tag_brackets_in_preamble() {
-        let (header, _) =
-            Header::parse("Log by <JL1HIS>\n<EOH>", LengthMode::Bytes).expect("must parse");
+        let (header, _) = Header::parse(
+            "Log by <JL1HIS>\n<EOH>",
+            &mut LengthReader::new(&[LengthMode::Bytes]),
+        )
+        .expect("must parse");
         assert_eq!(
             header.expect("must have header").preamble,
             "Log by <JL1HIS>\n"
