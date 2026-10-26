@@ -70,6 +70,8 @@ fn is_field_name(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use encoding_rs::SHIFT_JIS;
+
     use crate::{LengthMode, error::WriteError, read_adi};
 
     use super::{header, record};
@@ -163,6 +165,8 @@ mod tests {
             LengthMode::Bytes,
             LengthMode::Codepoints,
             LengthMode::Graphemes,
+            LengthMode::Utf16Units,
+            LengthMode::EncodedBytes(SHIFT_JIS),
         ] {
             let text = header(
                 "Exported

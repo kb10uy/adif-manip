@@ -12,6 +12,7 @@ use crate::{
     format::{adi::AdiDocument, adx::AdxDocument},
 };
 
+pub use encoding_rs;
 pub use length::LengthMode;
 
 pub fn read_adi(adi_text: &str, length_mode: LengthMode) -> Result<AdifDocument, AdifError> {

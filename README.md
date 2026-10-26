@@ -117,13 +117,21 @@ contain ASCII only. In practice, loggers write non-ASCII text and count its leng
 different ways. `LengthMode` selects how `read_adi` interprets lengths, and how
 `write::header` and `write::record` count them:
 
-| Mode                     | Length is counted in       |
-| ------------------------ | -------------------------- |
-| `LengthMode::Bytes`      | UTF-8 bytes                |
-| `LengthMode::Codepoints` | Unicode scalar values      |
-| `LengthMode::Graphemes`  | Extended grapheme clusters |
+| Mode                            | Length is counted in                |
+| ------------------------------- | ----------------------------------- |
+| `LengthMode::Bytes`             | UTF-8 bytes                         |
+| `LengthMode::Codepoints`        | Unicode scalar values               |
+| `LengthMode::Graphemes`         | Extended grapheme clusters          |
+| `LengthMode::Utf16Units`        | UTF-16 code units                   |
+| `LengthMode::EncodedBytes(enc)` | Bytes in the `encoding_rs` encoding |
 
-For ASCII-only files, all three modes give the same result.
+For ASCII-only files, all modes give the same result. `Utf16Units` is what programs that
+measure strings in UTF-16 (Qt, Delphi) write. `EncodedBytes` is for files in a legacy
+encoding such as Shift_JIS, which the caller decodes to a `&str` first; the crate
+re-exports `encoding_rs`, so `LengthMode::EncodedBytes(adif_manip::encoding_rs::SHIFT_JIS)`
+names one. Each character is counted on its own, so stateful encodings such as
+ISO-2022-JP are not supported, and a character the encoding cannot represent counts as
+the numeric character reference `encoding_rs` would write for it.
 
 ## Errors
 

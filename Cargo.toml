@@ -10,6 +10,7 @@ keywords = ["adif", "ham-radio", "amateur-radio", "logbook", "parser"]
 categories = ["parser-implementations"]
 
 [dependencies]
+encoding_rs = "0.8.42"
 regex = "1.13.1"
 roxmltree = "0.21.1"
 thiserror = "2.0.20"

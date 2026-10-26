@@ -16,40 +16,35 @@ pub fn get_field_value(text: &str, mode: LengthMode, length: usize) -> FieldValu
     }
 
     match mode {
-        LengthMode::Bytes => {
-            if text.len() < length {
-                FieldValue::NotEnough(text.len())
-            } else if text.is_char_boundary(length) {
-                FieldValue::Found(&text[..length])
-            } else {
-                FieldValue::InvalidBoundary
-            }
-        }
-        LengthMode::Codepoints => {
-            // length > 0
-            let mut text_end_chars = text.char_indices().skip(length - 1);
+        LengthMode::Graphemes => split(
+            text,
+            text.grapheme_indices(true).map(|(i, g)| (i + g.len(), 1)),
+            length,
+        ),
+        _ => split(
+            text,
+            text.char_indices()
+                .map(|(i, c)| (i + c.len_utf8(), mode.char_len(c))),
+            length,
+        ),
+    }
+}
 
-            if text_end_chars.next().is_none() {
-                return FieldValue::NotEnough(text.chars().count());
-            }
-            match text_end_chars.next() {
-                Some((e, _)) => FieldValue::Found(&text[..e]),
-                None => FieldValue::Found(text),
-            }
-        }
-        LengthMode::Graphemes => {
-            // length > 0
-            let mut text_end_graphemes = text.grapheme_indices(true).skip(length - 1);
-
-            if text_end_graphemes.next().is_none() {
-                return FieldValue::NotEnough(text.graphemes(true).count());
-            }
-            match text_end_graphemes.next() {
-                Some((e, _)) => FieldValue::Found(&text[..e]),
-                None => FieldValue::Found(text),
-            }
+fn split<I: Iterator<Item = (usize, usize)>>(
+    text: &str,
+    units: I,
+    length: usize,
+) -> FieldValue<'_> {
+    let mut counted = 0;
+    for (end, unit_length) in units {
+        counted += unit_length;
+        if counted == length {
+            return FieldValue::Found(&text[..end]);
+        } else if counted > length {
+            return FieldValue::InvalidBoundary;
         }
     }
+    FieldValue::NotEnough(counted)
 }
 
 pub fn read_field_value(
@@ -70,6 +65,8 @@ pub fn read_field_value(
 
 #[cfg(test)]
 mod tests {
+    use encoding_rs::SHIFT_JIS;
+
     use super::{FieldValue, LengthMode, get_field_value};
 
     #[test]
@@ -141,6 +138,31 @@ mod tests {
         assert_eq!(
             get_field_value("ABCÄËÖあいう👨‍👩‍👧‍👦👨‍👩‍👧‍👦", LengthMode::Graphemes, 11),
             FieldValue::Found("ABCÄËÖあいう👨‍👩‍👧‍👦👨‍👩‍👧‍👦")
+        );
+    }
+
+    #[test]
+    fn splits_by_utf16_units() {
+        assert_eq!(
+            get_field_value("あ👨‍👩‍👧‍👦", LengthMode::Utf16Units, 3),
+            FieldValue::Found("あ👨")
+        );
+        assert_eq!(
+            get_field_value("あ👨‍👩‍👧‍👦", LengthMode::Utf16Units, 2),
+            FieldValue::InvalidBoundary
+        );
+    }
+
+    #[test]
+    fn splits_by_encoded_bytes() {
+        let mode = LengthMode::EncodedBytes(SHIFT_JIS);
+        assert_eq!(
+            get_field_value("JA太郎ｶ<EOR>", mode, 7),
+            FieldValue::Found("JA太郎ｶ")
+        );
+        assert_eq!(
+            get_field_value("JA太郎ｶ<EOR>", mode, 3),
+            FieldValue::InvalidBoundary
         );
     }
 
