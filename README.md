@@ -25,7 +25,7 @@ care which format a log came from. Writing produces ADI.
 
 ```toml
 [dependencies]
-adif-manip = "0.1.0"
+adif-manip = "0.2.0"
 ```
 
 ### Reading an ADI file
