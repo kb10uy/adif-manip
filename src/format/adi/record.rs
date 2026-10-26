@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
+    LengthMode,
     document::{DataType, FieldName},
-    format::adi::{
-        data::{LengthMode, read_field_value},
-        error::AdiError,
-        tag::Tag,
-    },
+    format::adi::{data::read_field_value, error::AdiError, tag::Tag},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,7 +46,7 @@ impl<'a> Record<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{document::DataType, format::adi::data::LengthMode};
+    use crate::{LengthMode, document::DataType};
 
     use super::Record;
 
